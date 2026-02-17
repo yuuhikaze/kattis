@@ -24,32 +24,28 @@ const Board = struct {
     }
 
     fn perform_action(self: *Board, action: Action) void {
-        _ = action;
-        // assume action is left
+        _ = action; // Still assuming Left for now
         for (&self.data) |*row| {
-            // compute offset and shift
-            var offset: ?usize = null;
-            var shift: usize = 0;
-            for (row, 0..) |cell, i| {
-                if (offset == null and cell == 0) offset = i;
-                if (offset != null) shift += 1;
-                if (offset != null and cell != 0) break;
-            }
-            if (offset != null) {
-                // shift towards free cells
-                for (offset.?..row.len - shift) |k| {
-                    row[k] = row[k + shift];
-                    row[k + shift] = 0;
-                }
-                // merge identical cells and shift by one
-                if (row[0] == row[1]) {
-                    row[0] *= 2;
-                    for (0..row.len - shift - 1) |k| {
-                        row[k] = row[k + 1];
-                        row[k + 1] = 0;
-                    }
+            var new_row = [4]u16{ 0, 0, 0, 0 };
+            var target_idx: usize = 0;
+            var last_val: u16 = 0;
+
+            for (row) |cell| {
+                if (cell == 0) continue;
+
+                if (last_val == cell) {
+                    // Merge! Double the value in the previous slot
+                    new_row[target_idx - 1] *= 2;
+                    last_val = 0; // Prevent triple merges (e.g., 4 4 4 -> 8 4, not 12)
+                } else {
+                    // Place the value in the next available slot
+                    new_row[target_idx] = cell;
+                    last_val = cell;
+                    target_idx += 1;
                 }
             }
+            // Write the processed row back to the board
+            row.* = new_row;
         }
     }
 };
