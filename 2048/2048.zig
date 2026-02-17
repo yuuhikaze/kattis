@@ -22,6 +22,36 @@ const Board = struct {
             dbg("\n", .{});
         }
     }
+
+    fn perform_action(self: *Board, action: Action) void {
+        _ = action;
+        // assume action is left
+        for (&self.data) |*row| {
+            // compute offset and shift
+            var offset: ?usize = null;
+            var shift: usize = 0;
+            for (row, 0..) |cell, i| {
+                if (offset == null and cell == 0) offset = i;
+                if (offset != null) shift += 1;
+                if (offset != null and cell != 0) break;
+            }
+            if (offset != null) {
+                // shift towards free cells
+                for (offset.?..row.len - shift) |k| {
+                    row[k] = row[k + shift];
+                    row[k + shift] = 0;
+                }
+                // merge identical cells and shift by one
+                if (row[0] == row[1]) {
+                    row[0] *= 2;
+                    for (0..row.len - shift - 1) |k| {
+                        row[k] = row[k + 1];
+                        row[k + 1] = 0;
+                    }
+                }
+            }
+        }
+    }
 };
 
 fn build_board(board: *Board) !void {
@@ -62,6 +92,8 @@ fn get_action() !Action {
 pub fn main() !void {
     var board = Board{ .curr_row = 0 };
     try build_board(&board);
-    _ = try get_action();
+    const action = try get_action();
+    board.print_board();
+    board.perform_action(action);
     board.print_board();
 }
