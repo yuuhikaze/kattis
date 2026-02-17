@@ -1,31 +1,23 @@
 const std = @import("std");
-const dbg = @import("std").debug.print;
-
-const ErrStates = error{
-    BoardIsFull,
-    InvalidAction,
-};
+const dbg = std.debug.print;
 
 const Action = enum { Left, Up, Right, Down };
 
-const Game = struct { board: Board, action: Action };
-
 const Board = struct {
-    data: [4][]u16 = undefined,
+    data: [4][4]u16 = undefined,
     curr_row: usize = 0,
 
-    fn add_row(self: *Board, row: []u16) ErrStates!void {
-        self.data[self.curr_row] = row;
-        self.curr_row += 1;
-        if (self.curr_row > 3) return ErrStates.BoardIsFull;
+    fn add_row(self: *Board, row_data: [4]u16) void {
+        if (self.curr_row < 4) {
+            self.data[self.curr_row] = row_data;
+            self.curr_row += 1;
+        }
     }
 
-    fn perform_action() !void {}
-    
     fn print_board(self: *const Board) void {
-        for (0..4) |i| {
-            for (self.data[i]) |j| {
-                dbg("{d:>4} ", .{j});
+        for (self.data) |row| {
+            for (row) |cell| {
+                dbg("{d:>5} ", .{cell});
             }
             dbg("\n", .{});
         }
@@ -34,38 +26,42 @@ const Board = struct {
 
 fn build_board(board: *Board) !void {
     const stdin = std.io.getStdIn().reader();
-    var buffer: [128]u8 = undefined;
-    row_reader: while (try stdin.readUntilDelimiterOrEof(&buffer, '\n')) |row| {
-        var it = std.mem.tokenizeAny(u8, row, " ");
-        var res: [4]u16 = undefined;
+    var buffer: [1024]u8 = undefined;
+
+    while (board.curr_row < 4) {
+        const line = (try stdin.readUntilDelimiterOrEof(&buffer, '\n')) orelse break;
+        var it = std.mem.tokenizeAny(u8, line, " \r\t");
+
+        var row_vals: [4]u16 = undefined;
         var cnt: usize = 0;
-        while (it.next()) |item| {
-            res[cnt] = item[0];
-            cnt += 1;
+
+        while (it.next()) |token| : (cnt += 1) {
+            if (cnt < 4) {
+                row_vals[cnt] = try std.fmt.parseInt(u16, token, 10);
+            }
         }
-        board.add_row(&res) catch break :row_reader;
+        board.add_row(row_vals);
     }
 }
 
 fn get_action() !Action {
     const stdin = std.io.getStdIn().reader();
-    var buffer: [128]u8 = undefined;
-    const action_raw = try stdin.readUntilDelimiterOrEof(&buffer, '\n');
-    // const action_trimmed = std.mem.trim(u8, action_raw.?, " \n\r\t");
-    // dbg("!!{s}", .{action_raw.?});
-    return switch (try std.fmt.parseInt(u4, action_raw.?, 10)) {
-        0 => Action.Left,
-        1 => Action.Up,
-        2 => Action.Right,
-        3 => Action.Down,
-        else => ErrStates.InvalidAction,
+    var buffer: [16]u8 = undefined;
+    const line = (try stdin.readUntilDelimiterOrEof(&buffer, '\n')) orelse return error.EndOfStream;
+    const val = try std.fmt.parseInt(u4, line, 10);
+
+    return switch (val) {
+        0 => .Left,
+        1 => .Up,
+        2 => .Right,
+        3 => .Down,
+        else => error.InvalidAction,
     };
 }
 
 pub fn main() !void {
-    var board = Board{};
+    var board = Board{ .curr_row = 0 };
     try build_board(&board);
-    const action = try get_action();
-    _ = action;
+    _ = try get_action();
     board.print_board();
 }
