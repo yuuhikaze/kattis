@@ -17,7 +17,7 @@ const Board = struct {
     fn add_row(self: *Board, row: []u16) ErrStates!void {
         self.data[self.curr_row] = row;
         self.curr_row += 1;
-        if (self.curr_row == 3) return ErrStates.BoardIsFull;
+        if (self.curr_row > 3) return ErrStates.BoardIsFull;
     }
 
     fn perform_action() !void {}
@@ -25,7 +25,7 @@ const Board = struct {
     fn print_board(self: *const Board) void {
         for (0..4) |i| {
             for (self.data[i]) |j| {
-                dbg("{d:>3}", .{j});
+                dbg("{d:>4} ", .{j});
             }
             dbg("\n", .{});
         }
@@ -50,8 +50,10 @@ fn build_board(board: *Board) !void {
 fn get_action() !Action {
     const stdin = std.io.getStdIn().reader();
     var buffer: [128]u8 = undefined;
-    const action = try stdin.readUntilDelimiterOrEof(&buffer, '\n');
-    return switch (try std.fmt.parseInt(u16, action.?, 10)) {
+    const action_raw = try stdin.readUntilDelimiterOrEof(&buffer, '\n');
+    // const action_trimmed = std.mem.trim(u8, action_raw.?, " \n\r\t");
+    // dbg("!!{s}", .{action_raw.?});
+    return switch (try std.fmt.parseInt(u4, action_raw.?, 10)) {
         0 => Action.Left,
         1 => Action.Up,
         2 => Action.Right,
