@@ -1,5 +1,4 @@
 const std = @import("std");
-const dbg = std.debug.print;
 
 const Action = enum { Left, Up, Right, Down };
 
@@ -14,38 +13,74 @@ const Board = struct {
         }
     }
 
-    fn print_board(self: *const Board) void {
+    // Pass in any writer (stdout, a file, etc.)
+    fn print_board(self: *const Board, writer: anytype) !void {
         for (self.data) |row| {
             for (row) |cell| {
-                dbg("{d:>5} ", .{cell});
+                // try writer.print("{d:>5} ", .{cell}); // pretty ^-^
+                try writer.print("{d} ", .{cell});
             }
-            dbg("\n", .{});
+            try writer.print("\n", .{});
         }
     }
 
     fn perform_action(self: *Board, action: Action) void {
-        _ = action; // Still assuming Left for now
+        // Transform board so the requested move becomes a 'Left' move
+        match_transform(self, action, true);
+        // Perform the Left Shift logic on every row
         for (&self.data) |*row| {
             var new_row = [4]u16{ 0, 0, 0, 0 };
-            var target_idx: usize = 0;
+            var write_idx: usize = 0;
             var last_val: u16 = 0;
 
             for (row) |cell| {
                 if (cell == 0) continue;
 
                 if (last_val == cell) {
-                    // Merge! Double the value in the previous slot
-                    new_row[target_idx - 1] *= 2;
-                    last_val = 0; // Prevent triple merges (e.g., 4 4 4 -> 8 4, not 12)
+                    new_row[write_idx - 1] *= 2;
+                    last_val = 0; // Reset so [4, 4, 4, 4] becomes [8, 8, 0, 0]
                 } else {
-                    // Place the value in the next available slot
-                    new_row[target_idx] = cell;
+                    new_row[write_idx] = cell;
                     last_val = cell;
-                    target_idx += 1;
+                    write_idx += 1;
                 }
             }
-            // Write the processed row back to the board
             row.* = new_row;
+        }
+        // Transform the board back to its original orientation
+        match_transform(self, action, false);
+    }
+
+    fn match_transform(self: *Board, action: Action, forward: bool) void {
+        switch (action) {
+            .Left => {}, // Already Left
+            .Right => reverse_rows(self),
+            .Up => transpose(self),
+            .Down => {
+                if (forward) {
+                    transpose(self);
+                    reverse_rows(self);
+                } else {
+                    reverse_rows(self);
+                    transpose(self);
+                }
+            },
+        }
+    }
+
+    fn transpose(self: *Board) void {
+        for (0..4) |i| {
+            for (i + 1..4) |j| {
+                const temp = self.data[i][j];
+                self.data[i][j] = self.data[j][i];
+                self.data[j][i] = temp;
+            }
+        }
+    }
+
+    fn reverse_rows(self: *Board) void {
+        for (&self.data) |*row| {
+            std.mem.reverse(u16, row);
         }
     }
 };
@@ -86,10 +121,13 @@ fn get_action() !Action {
 }
 
 pub fn main() !void {
+    // Initialize board
     var board = Board{ .curr_row = 0 };
     try build_board(&board);
+    // Perform action on board
     const action = try get_action();
-    board.print_board();
     board.perform_action(action);
-    board.print_board();
+    // Print board
+    const stdout = std.io.getStdOut().writer();
+    try board.print_board(stdout);
 }
